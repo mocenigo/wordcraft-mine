@@ -214,6 +214,11 @@ impl WordApp {
         if !self.has_unsaved_documents() {
             return true;
         }
+        // With a sheet per window (macOS) every window asks at once and the quit stops there.
+        if self.services.save_prompt.is_some() && self.windows.native() {
+            self.close_every_window();
+            return false;
+        }
         // Each document with unsaved work is shown and asked about in turn; Cancel stops.
         self.ask_before_quit();
         self.quit_requested
@@ -263,6 +268,10 @@ impl WordApp {
         // its own.
         if last || !self.windows.native() {
             self.ui.backstage = false;
+        }
+        // Quitting with a sheet per window (`close_every_window`): the last one answered quits.
+        if params.get("quitting").and_then(Value::as_bool) == Some(true) && !self.has_unsaved_documents() {
+            self.quit_requested = true;
         }
         Ok(json!({"closed": true}))
     }
