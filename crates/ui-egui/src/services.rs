@@ -96,6 +96,10 @@ pub struct Services {
     /// Desktop: show Find and Replace in a window of its own, which the host keeps above the
     /// document's window as a utility panel (macOS), instead of inside the document's window.
     pub find_window: bool,
+    /// Desktop: show the system's font panel (macOS) on the selection's font, given its family,
+    /// size in points, bold and italic (⌘D, `ui.showFonts`). The host formats the selection with
+    /// what the user picks there.
+    pub show_fonts: Option<Box<dyn Fn(&str, f64, bool, bool)>>,
     /// Web: keep a font the user added (stored file name, original bytes) for the next visit
     /// (#582). Desktop fonts are stored by the font database itself, in the app's font folder.
     pub store_font: Option<Box<dyn Fn(&str, &[u8])>>,

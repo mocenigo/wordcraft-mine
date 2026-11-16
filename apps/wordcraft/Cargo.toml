@@ -41,7 +41,7 @@ fmv-macos-events = "=0.1.0"
 # NSWorkspace: a safe call in these bindings. Already in the build through eframe, rfd and arboard,
 # at this version; this adds the `NSAccessibility` bindings and, to fit the title bar around the
 # traffic lights, the window, button and view ones; and `NSPasteboard` for the clipboard's RTF.
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel"] }
 # The Save Changes sheet's completion handler (`src/save_sheet.rs`). Already in the build through
 # objc2-app-kit, at this version.
 block2 = "0.6"
@@ -102,3 +102,7 @@ getrandom = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 craft-update = { workspace = true }
+
+[[test]]
+name = "mac_font_panel"
+harness = false

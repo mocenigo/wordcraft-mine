@@ -18,6 +18,8 @@ mod clipboard;
 mod control_server;
 mod default_apps;
 mod file_dialogs;
+#[cfg(target_os = "macos")]
+mod font_panel;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod graphics;
 mod logging;
@@ -52,6 +54,7 @@ struct App(
     RawWindowState,
     #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
     #[cfg(target_os = "macos")] save_sheet::Launcher,
+    #[cfg(target_os = "macos")] Option<std::rc::Rc<font_panel::FontPanel>>,
 );
 
 impl eframe::App for App {
@@ -64,6 +67,13 @@ impl eframe::App for App {
         #[cfg(target_os = "macos")]
         if let Some(mtm) = objc2::MainThreadMarker::new() {
             panels::tie(mtm);
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(panel) = &self.7 {
+            for pick in panel.picks() {
+                font_panel::apply(&mut self.0, &pick);
+            }
+            panel.follow(&mut self.0);
         }
         self.0.logic(ctx);
         self.3.show(frame);
@@ -644,6 +654,12 @@ fn main() -> eframe::Result {
                 app.services.save_prompt = Some(save_prompt);
                 app.services.find_window = true;
             }
+            #[cfg(target_os = "macos")]
+            let fonts = objc2::MainThreadMarker::new().map(|mtm| std::rc::Rc::new(font_panel::FontPanel::new(mtm)));
+            #[cfg(target_os = "macos")]
+            if let Some(panel) = fonts.clone() {
+                app.services.show_fonts = Some(Box::new(move |family, size, bold, italic| panel.show(family, size, bold, italic)));
+            }
             app.set_startup_update_check(true);
             load_prefs(&mut app);
             // After the preferences, so the reason it gives is in the interface language.
@@ -709,6 +725,8 @@ fn main() -> eframe::Result {
                 apple_events.connect(&cc.egui_ctx),
                 #[cfg(target_os = "macos")]
                 save_sheets,
+                #[cfg(target_os = "macos")]
+                fonts,
             )))
         }),
     )
