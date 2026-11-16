@@ -28,6 +28,44 @@ fn main() {
     assert!(tops.starts_with(&["WordCraft".into(), "File".into(), "Edit".into(), "View".into(), "Go".into(), "Insert".into()]));
     assert_eq!(nsapp.windowsMenu().map(|m| m.title().to_string()).as_deref(), Some("Window"), "AppKit knows the Window menu");
 
+    // Word for Mac's shortcuts, as AppKit shows them.
+    use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu};
+    use objc2_foundation::{NSPoint, NSString};
+    let item = |menu: &str, title: &str| {
+        let m: objc2::rc::Retained<NSMenu> = bar.itemWithTitle(&NSString::from_str(menu)).and_then(|i| i.submenu()).expect(menu);
+        m.itemWithTitle(&NSString::from_str(title)).unwrap_or_else(|| panic!("{menu} › {title}"))
+    };
+    let undo = item("Edit", "Undo");
+    assert_eq!(undo.keyEquivalent().to_string(), "z");
+    assert_eq!(undo.keyEquivalentModifierMask(), NSEventModifierFlags::Command);
+    assert_eq!(item("WordCraft", "Hide WordCraft").keyEquivalent().to_string(), "h");
+    assert_eq!(item("Edit", "Replace…").keyEquivalentModifierMask(), NSEventModifierFlags::Control);
+    assert_eq!(item("Format", "Paragraph").keyEquivalentModifierMask(), NSEventModifierFlags::Command | NSEventModifierFlags::Option);
+
+    assert!(!item("Table", "Delete Rows").isEnabled(), "no table");
+    let key = |chars: &str, code: u16, flags: NSEventModifierFlags| {
+        NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
+            NSEventType::KeyDown,
+            NSPoint::new(0.0, 0.0),
+            flags,
+            0.0,
+            0,
+            None,
+            &NSString::from_str(chars),
+            &NSString::from_str(chars),
+            false,
+            code,
+        )
+        .expect("a key event")
+    };
+    // A key no item has goes on to the window.
+    assert!(!bar.performKeyEquivalent(&key("j", 38, NSEventModifierFlags::Command | NSEventModifierFlags::Control)));
+    // ⌘D is Format › Font: the menu takes it, and the frame opens the dialog.
+    assert!(app.dialog.is_none());
+    assert!(bar.performKeyEquivalent(&key("d", 2, NSEventModifierFlags::Command)));
+    native_menu::NativeMenu::frame(&mut menu, &mut app, &ctx);
+    assert!(app.dialog.is_some(), "⌘D opened the Font dialog");
+
     println!("mac_menu_appkit: ok");
 }
 

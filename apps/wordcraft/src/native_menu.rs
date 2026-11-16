@@ -4,8 +4,8 @@
 //! Every item runs a registered command through `WordApp::run`, the path the ribbon and the
 //! keyboard take (so "Save changes?" prompts, input dialogs and clipboard handling all apply), or,
 //! for Cut / Copy / Paste / Select All, feeds egui the input events the keyboard would have. Items
-//! carry no key equivalents (Quit uses ⌘Q): the keyboard keeps going through egui and the keymap exactly as before,
-//! so a menu never takes a key away from a text field or the document.
+//! show Word for Mac's shortcuts. A shortcut WordCraft's keymap already has goes back to egui as
+//! that key when pressed, so a menu never takes a key away from a text field or the document.
 //!
 //! Quit routes through `Action::Quit` -> `WordApp::quit_requested` so unsaved changes prompt the user
 //! before exiting, protecting against accidental closure on Command-Q (#4295).
@@ -64,10 +64,12 @@ pub(crate) const FILE: &[Entry] = &[
     Sep,
     Cmd("file.save"),
     Cmd("file.saveAs"),
+    Cmd("file.share"),
     Sep,
     backstage!("export", "Export…"),
     backstage!("info", "Info"),
     Sep,
+    dialog!("pageSetup", "Page Setup"),
     Cmd("file.print"),
 ];
 
@@ -143,6 +145,7 @@ pub(crate) const GO: &[Entry] = &[
 
 pub(crate) const INSERT: &[Entry] = &[
     Cmd("insert.pageBreak"),
+    Cmd("text.columnBreak"),
     Cmd("insert.blankPage"),
     Cmd("insert.coverPage"),
     Sep,
@@ -264,6 +267,7 @@ pub(crate) const HELP: &[Entry] = &[Cmd("tools.search")];
 
 pub(crate) const ABOUT: Entry = With("ui.dialog", r#"{"name":"about"}"#, "About WordCraft");
 pub(crate) const SETTINGS: Entry = With("ui.backstage", r#"{"value":true,"page":"options"}"#, "Options");
+pub(crate) const UPDATES: Entry = With("ui.checkForUpdates", "{}", "Check for Updates…");
 
 /// The menus after the application menu, with their (catalog) titles.
 pub(crate) const MENUS: [(&str, &[Entry]); 10] = [
@@ -288,20 +292,56 @@ mod bar {
     use std::sync::mpsc::{Receiver, Sender, channel};
 
     use muda::accelerator::Accelerator;
-    use muda::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+    use muda::{IsMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
     use serde_json::{Value, json};
     use wordcraft_ui_egui::{WordApp, i18n, widgets};
 
-    use super::{ABOUT, Entry, InputKind, MENUS, SETTINGS};
+    use super::{ABOUT, Entry, InputKind, MENUS, SETTINGS, UPDATES};
+
+    /// Word for Mac's shortcuts, by command id or (for the other items) English label. `true`:
+    /// WordCraft's keymap has the same key, and a press goes back to egui as that key (text fields
+    /// keep Undo, the keymap keeps its command); `false`: the item runs.
+    const KEYS: &[(&str, &str, bool)] = &[
+        ("Options", "CMD+COMMA", false),
+        ("Hide WordCraft", "CMD+H", false),
+        ("file.new", "CMD+N", true),
+        ("file.open", "CMD+O", true),
+        (MORE, "CMD+SHIFT+O", false),
+        ("file.save", "CMD+S", true),
+        ("file.print", "CMD+P", true),
+        ("edit.undo", "CMD+Z", true),
+        ("edit.redo", "CMD+Y", true),
+        ("Cut", "CMD+X", false),
+        ("Copy", "CMD+C", false),
+        ("Paste", "CMD+V", false),
+        ("Select All", "CMD+A", false),
+        ("edit.find", "CMD+F", true),
+        // Word for Mac's, and WordCraft's Ctrl+H: ⌘H is Hide.
+        ("Replace…", "CTRL+H", true),
+        ("edit.findNext", "CMD+G", true),
+        ("edit.findPrevious", "CMD+SHIFT+G", true),
+        ("Go To…", "CMD+ALT+G", true),
+        ("Collapse Ribbon", "CMD+ALT+R", true),
+        ("insert.pageBreak", "CMD+ENTER", true),
+        ("text.columnBreak", "CMD+SHIFT+ENTER", true),
+        ("Font", "CMD+D", true),
+        // The keymap gives ⌥⌘M to New Comment; Word for Mac to Paragraph.
+        ("Paragraph", "CMD+ALT+M", false),
+        ("table.deleteRow", "CMD+CTRL+X", false),
+        ("Minimize", "CMD+M", false),
+    ];
+
+    /// File ▸ Open Recent ▸ More…: Backstage's Open page.
+    const MORE: &str = "More…";
 
     #[derive(Clone, Debug)]
     enum Action {
         Run(&'static str, Value),
         Input(InputKind),
         Open(String),
-        /// WordCraft ▸ Hide WordCraft, without AppKit's ⌘H (Find and Replace in WordCraft's keymap).
+        /// WordCraft ▸ Hide WordCraft (⌘H, as on every Mac; Find and Replace keeps Ctrl+H).
         Hide,
-        /// Window ▸ Minimize, without AppKit's ⌘M (Increase Indent in WordCraft's keymap).
+        /// Window ▸ Minimize (⌘M, as on every Mac; Increase Indent keeps the ribbon and Ctrl+M).
         Minimize,
         /// WordCraft ▸ Quit WordCraft, with save check before exit (#4295).
         Quit,
@@ -318,8 +358,11 @@ mod bar {
         /// Kept alive: AppKit holds the menu only while muda's handles exist.
         _menu: Menu,
         _submenus: Vec<Submenu>,
-        events: Receiver<MenuEvent>,
-        actions: Vec<(muda::MenuId, Action)>,
+        /// Each choice, and whether a key press (not a click) made it.
+        events: Receiver<(MenuEvent, bool)>,
+        actions: Vec<(MenuId, Action)>,
+        /// Items whose key goes back to egui when pressed, with that key.
+        keyed: Vec<(MenuId, &'static str)>,
         tracked: Vec<Tracked>,
         recent: Option<Submenu>,
         recent_paths: Option<Vec<String>>,
@@ -349,6 +392,8 @@ mod bar {
         ("New from Template…", "Nuovo da modello…"),
         ("Export…", "Esporta…"),
         ("Table", "Tabella"),
+        ("Check for Updates…", "Verifica aggiornamenti…"),
+        (MORE, "Altro…"),
     ];
 
     /// A translated label.
@@ -377,8 +422,13 @@ mod bar {
             format!("wordcraft.{}", self.seq)
         }
 
-        fn add(&mut self, menu: &Submenu, text: &str, action: Action, follow: Option<&'static str>) {
-            let item = MenuItem::with_id(self.next_id(), text, true, None);
+        /// `name` finds the item's shortcut in `KEYS`.
+        fn add(&mut self, menu: &Submenu, text: &str, action: Action, follow: Option<&'static str>, name: &str) {
+            let keys = KEYS.iter().find(|k| k.0 == name);
+            let item = MenuItem::with_id(self.next_id(), text, true, keys.and_then(|k| Accelerator::from_str(k.1).ok()));
+            if let Some(&(_, k, true)) = keys {
+                self.keyed.push((item.id().clone(), k));
+            }
             self.actions.push((item.id().clone(), action));
             if let Some(id) = follow {
                 self.tracked.push(Tracked { item: item.clone(), id, enabled: true });
@@ -391,14 +441,14 @@ mod bar {
                 Entry::Cmd(id) => {
                     // A command this version doesn't have is left out.
                     if app.session.registry.get(id).is_some() || id.starts_with("ui.") {
-                        self.add(menu, &label(id, app), Action::Run(id, json!({})), Some(id));
+                        self.add(menu, &label(id, app), Action::Run(id, json!({})), Some(id), id);
                     }
                 }
                 Entry::With(id, params, text) => {
                     let params = serde_json::from_str(params).unwrap_or_else(|_| json!({}));
-                    self.add(menu, t(text), Action::Run(id, params), None);
+                    self.add(menu, t(text), Action::Run(id, params), None, text);
                 }
-                Entry::Input(kind, text) => self.add(menu, t(text), Action::Input(kind), None),
+                Entry::Input(kind, text) => self.add(menu, t(text), Action::Input(kind), None, text),
                 Entry::Recent => {
                     let sub = Submenu::new(t("Open Recent"), false);
                     append(menu, &sub);
@@ -410,10 +460,10 @@ mod bar {
 
         /// Build the menu bar and install it. `None` off the main thread. `events` is the previous
         /// bar's channel: muda takes the click handler only once per process.
-        fn install(app: &WordApp, ctx: &egui::Context, events: Option<Receiver<MenuEvent>>) -> Option<Self> {
+        fn install(app: &WordApp, ctx: &egui::Context, events: Option<Receiver<(MenuEvent, bool)>>) -> Option<Self> {
             objc2::MainThreadMarker::new()?;
             let events = events.unwrap_or_else(|| {
-                let (tx, rx) = channel::<MenuEvent>();
+                let (tx, rx) = channel();
                 set_handler(tx, ctx.clone());
                 rx
             });
@@ -422,7 +472,8 @@ mod bar {
                 _menu: menu.clone(),
                 _submenus: Vec::new(),
                 events,
-                actions: Vec::new(),
+                actions: vec![(MenuId::new(MORE), Action::Run("ui.backstage", json!({"value": true, "page": "open"})))],
+                keyed: Vec::new(),
                 tracked: Vec::new(),
                 recent: None,
                 recent_paths: None,
@@ -435,10 +486,11 @@ mod bar {
             me.entry(&app_menu, ABOUT, app);
             append(&app_menu, &PredefinedMenuItem::separator());
             me.entry(&app_menu, SETTINGS, app);
+            me.entry(&app_menu, UPDATES, app);
             append(&app_menu, &PredefinedMenuItem::separator());
             append(&app_menu, &PredefinedMenuItem::services(Some(t("Services"))));
             append(&app_menu, &PredefinedMenuItem::separator());
-            me.add(&app_menu, t("Hide WordCraft"), Action::Hide, None);
+            me.add(&app_menu, t("Hide WordCraft"), Action::Hide, None, "Hide WordCraft");
             append(&app_menu, &PredefinedMenuItem::hide_others(Some(t("Hide Others"))));
             append(&app_menu, &PredefinedMenuItem::show_all(Some(t("Show All"))));
             append(&app_menu, &PredefinedMenuItem::separator());
@@ -454,7 +506,7 @@ mod bar {
             for (title, entries) in MENUS {
                 let sub = Submenu::new(t(title), true);
                 if title == "Window" {
-                    me.add(&sub, t("Minimize"), Action::Minimize, None);
+                    me.add(&sub, t("Minimize"), Action::Minimize, None, "Minimize");
                     append(&sub, &PredefinedMenuItem::maximize(Some(t("Zoom"))));
                     append(&sub, &PredefinedMenuItem::separator());
                     append(&sub, &PredefinedMenuItem::fullscreen(Some(t("Enter Full Screen"))));
@@ -490,7 +542,12 @@ mod bar {
                 *slot = Self::install(app, ctx, events);
             }
             let Some(me) = slot.as_mut() else { return };
-            while let Ok(e) = me.events.try_recv() {
+            while let Ok((e, by_key)) = me.events.try_recv() {
+                if by_key && let Some((_, keys)) = me.keyed.iter().find(|(id, _)| id == e.id()) {
+                    me.input.extend(key_events(keys));
+                    ctx.request_repaint();
+                    continue;
+                }
                 let Some(action) = me.actions.iter().find(|(id, _)| id == e.id()).map(|(_, a)| a.clone()) else { continue };
                 match action {
                     Action::Run(id, params) => {
@@ -554,15 +611,23 @@ mod bar {
                 self.actions.push((item.id().clone(), Action::Open(p.clone())));
                 append(&sub, &item);
             }
-            sub.set_enabled(!app.ui.recent.is_empty());
+            if !app.ui.recent.is_empty() {
+                append(&sub, &PredefinedMenuItem::separator());
+            }
+            let keys = KEYS.iter().find(|k| k.0 == MORE).and_then(|k| Accelerator::from_str(k.1).ok());
+            append(&sub, &MenuItem::with_id(MORE, t(MORE), true, keys));
             self.recent_paths = Some(app.ui.recent.clone());
         }
     }
 
-    /// Clicks go to `tx`, and wake the event loop so the next frame sees them.
-    fn set_handler(tx: Sender<MenuEvent>, ctx: egui::Context) {
+    /// Choices go to `tx`, and wake the event loop so the next frame sees them.
+    fn set_handler(tx: Sender<(MenuEvent, bool)>, ctx: egui::Context) {
         MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
-            let _ = tx.send(e);
+            // AppKit calls this while handling the event that chose the item.
+            let by_key = objc2::MainThreadMarker::new()
+                .and_then(|mtm| objc2_app_kit::NSApplication::sharedApplication(mtm).currentEvent())
+                .is_some_and(|ev| ev.r#type() == objc2_app_kit::NSEventType::KeyDown);
+            let _ = tx.send((e, by_key));
             ctx.request_repaint();
         }));
     }
@@ -577,15 +642,52 @@ mod bar {
                 let text = arboard::Clipboard::new().and_then(|mut c| c.get_text()).unwrap_or_default().replace("\r\n", "\n");
                 if text.is_empty() { Vec::new() } else { vec![egui::Event::Paste(text)] }
             }
-            InputKind::SelectAll => [true, false]
-                .map(|pressed| egui::Event::Key {
-                    key: egui::Key::A,
-                    physical_key: Some(egui::Key::A),
-                    pressed,
-                    repeat: false,
-                    modifiers: egui::Modifiers::MAC_CMD | egui::Modifiers::COMMAND,
-                })
-                .to_vec(),
+            InputKind::SelectAll => key_events("CMD+A"),
+        }
+    }
+
+    /// A press and release of a `KEYS` shortcut, as egui-winit reports them.
+    fn key_events(keys: &str) -> Vec<egui::Event> {
+        let mut modifiers = egui::Modifiers::NONE;
+        let mut key = None;
+        for part in keys.split('+') {
+            match part {
+                "CMD" => modifiers |= egui::Modifiers::MAC_CMD | egui::Modifiers::COMMAND,
+                "SHIFT" => modifiers |= egui::Modifiers::SHIFT,
+                "ALT" => modifiers |= egui::Modifiers::ALT,
+                "CTRL" => modifiers |= egui::Modifiers::CTRL,
+                "ENTER" => key = Some(egui::Key::Enter),
+                k => key = egui::Key::from_name(k),
+            }
+        }
+        let Some(key) = key else { return Vec::new() };
+        [true, false].map(|pressed| egui::Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers }).to_vec()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// Every shortcut is one muda takes, names an item, and a keymap one is a key egui knows.
+        #[test]
+        fn every_shortcut_parses_and_names_an_item() {
+            let mut names: Vec<&str> = vec!["Hide WordCraft", "Minimize", MORE];
+            for e in std::iter::once(SETTINGS).chain(MENUS.iter().flat_map(|m| m.1.iter().copied())) {
+                match e {
+                    Entry::Cmd(id) => names.push(id),
+                    Entry::With(_, _, text) | Entry::Input(_, text) => names.push(text),
+                    _ => {}
+                }
+            }
+            for (name, keys, keymap) in KEYS {
+                assert!(Accelerator::from_str(keys).is_ok(), "{keys}");
+                assert!(names.contains(name), "no item {name}");
+                assert!(!keymap || key_events(keys).len() == 2, "{keys}");
+            }
+            let undo = key_events("CMD+SHIFT+ENTER");
+            assert!(
+                matches!(undo[0], egui::Event::Key { key: egui::Key::Enter, pressed: true, modifiers, .. } if modifiers.mac_cmd && modifiers.command && modifiers.shift)
+            );
         }
     }
 }
@@ -613,7 +715,7 @@ mod tests {
     }
 
     fn all_entries() -> Vec<Entry> {
-        let mut v = vec![ABOUT, SETTINGS];
+        let mut v = vec![ABOUT, SETTINGS, UPDATES];
         for (_, entries) in MENUS {
             v.extend_from_slice(entries);
         }
@@ -641,6 +743,8 @@ mod tests {
             "file.saveAs",
             "file.print",
             "file.close",
+            "file.share",
+            "ui.checkForUpdates",
             "insert.picture",
             "insert.object",
             "review.compare",
