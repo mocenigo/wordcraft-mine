@@ -68,11 +68,14 @@ fn main() {
     };
     // A key no item has goes on to the window.
     assert!(!bar.performKeyEquivalent(&key("j", 38, NSEventModifierFlags::Command | NSEventModifierFlags::Control)));
-    // ⌘D is Format › Font: the menu takes it, and the frame opens the dialog.
-    assert!(app.dialog.is_none());
+    // ⌘D is Format › Font: the menu takes it, and the frame opens the system font panel.
+    let shown = std::rc::Rc::new(std::cell::Cell::new(false));
+    let seen = shown.clone();
+    app.services.show_fonts = Some(Box::new(move |_, _, _, _| seen.set(true)));
     assert!(bar.performKeyEquivalent(&key("d", 2, NSEventModifierFlags::Command)));
     native_menu::NativeMenu::frame(&mut menu, &mut app, &ctx);
-    assert!(app.dialog.is_some(), "⌘D opened the Font dialog");
+    assert!(shown.get(), "⌘D opened the font panel");
+    assert!(app.dialog.is_none(), "not WordCraft's Font dialog");
 
     println!("mac_menu_appkit: ok");
 }
