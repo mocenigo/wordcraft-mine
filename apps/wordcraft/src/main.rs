@@ -23,6 +23,8 @@ mod font_panel;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod graphics;
 mod logging;
+#[cfg(any(target_os = "macos", test))]
+mod native_menu;
 mod open_panel;
 #[cfg(target_os = "macos")]
 mod panels;
@@ -56,6 +58,8 @@ struct App(
     #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
     #[cfg(target_os = "macos")] save_sheet::Launcher,
     #[cfg(target_os = "macos")] Option<std::rc::Rc<font_panel::FontPanel>>,
+    // The macOS menu bar (File, Edit, View, Go…), built on the first frame.
+    #[cfg(target_os = "macos")] Option<native_menu::NativeMenu>,
 );
 
 impl eframe::App for App {
@@ -77,6 +81,9 @@ impl eframe::App for App {
             panel.follow(&mut self.0);
         }
         self.0.logic(ctx);
+        // After `logic` has set the interface language the menu's labels follow.
+        #[cfg(target_os = "macos")]
+        native_menu::NativeMenu::frame(&mut self.8, &mut self.0, ctx);
         self.3.show(frame);
         #[cfg(target_os = "macos")]
         if let Some(mtm) = objc2::MainThreadMarker::new() {
@@ -146,6 +153,13 @@ impl eframe::App for App {
         // Keep this frame's native window state. `logic` must not read the last painted
         // `InputState` when a hidden Wayland tick reports no fresh inner rect.
         self.4 = RawWindowState::from_raw(raw);
+        // Cut / Copy / Paste / Select All chosen in the menu bar arrive as the keyboard's would,
+        // routed to the focused viewport when the active window has its own.
+        #[cfg(target_os = "macos")]
+        if let Some(menu) = self.8.as_mut() {
+            let events = std::mem::take(&mut menu.input);
+            self.0.route_input(ctx, raw, events);
+        }
         self.0.raw_input_hook(ctx, raw);
     }
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -728,6 +742,8 @@ fn main() -> eframe::Result {
                 save_sheets,
                 #[cfg(target_os = "macos")]
                 fonts,
+                #[cfg(target_os = "macos")]
+                None,
             )))
         }),
     )

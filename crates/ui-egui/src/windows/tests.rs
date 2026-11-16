@@ -386,6 +386,26 @@ fn control_typing_reaches_the_active_window() {
     assert_eq!(text(&a), "First", "the other window got none of it");
 }
 
+#[test]
+fn route_input_reaches_the_active_window() {
+    let ctx = backend();
+    let mut a = app("First");
+    frames(&ctx, &mut a, 2);
+    a.run("file.new", json!({})).unwrap();
+    let child = a.active_viewport();
+    focus(child);
+    frames(&ctx, &mut a, 8);
+    assert!(a.canvas.focused, "the new window's page has the keyboard");
+    let mut raw = input(ViewportId::ROOT);
+    a.route_input(&ctx, &mut raw, vec![egui::Event::Paste("Pasted".into())]);
+    assert!(raw.events.is_empty(), "events did not go to root");
+    frames(&ctx, &mut a, 4);
+    assert_eq!(text(&a), "Pasted");
+    focus(ViewportId::ROOT);
+    frames(&ctx, &mut a, 2);
+    assert_eq!(text(&a), "First", "the root window was untouched");
+}
+
 /// `ui.screenshot` captures the window in the root viewport: capturing a secondary document
 /// window in a separate native viewport is not supported by the viewport renderer and is refused
 /// immediately at admission with an error directing to `view.switchWindows` (#6159). A capture
