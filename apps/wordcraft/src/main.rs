@@ -23,6 +23,7 @@ mod font_panel;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod graphics;
 mod logging;
+mod open_panel;
 #[cfg(target_os = "macos")]
 mod panels;
 #[cfg(all(unix, not(target_os = "macos")))]
