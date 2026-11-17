@@ -49,6 +49,7 @@ impl WordApp {
             },
         };
         if !go {
+            self.quitting = false;
             return Ok(json!({"done": false}));
         }
         self.execute_held_back(&then, params).map(|r| json!({"done": true, "result": r}))
@@ -269,8 +270,14 @@ impl WordApp {
         if last || !self.windows.native() {
             self.ui.backstage = false;
         }
-        // Quitting with a sheet per window (`close_every_window`): the last one answered quits.
-        if params.get("quitting").and_then(Value::as_bool) == Some(true) && !self.has_unsaved_documents() {
+        // Quitting with a sheet per window (`close_every_window`): the last one answered quits,
+        // even if AutoSave has meanwhile saved a document whose sheet is still up (in the window
+        // that came forward, or another), or a sheet answered Save is still at its Save As (another
+        // window on that document can save it meanwhile).
+        let sheet_up = std::iter::once((&self.dialog, &self.file_dialog))
+            .chain(self.other_windows().map(|w| (&w.dialog, &w.file_dialog)))
+            .any(|(d, f)| matches!(d, Some(dialogs::Dialog::SaveChanges { .. })) || f.as_ref().is_some_and(|f| f.continues()));
+        if self.quitting && params.get("quitting").and_then(Value::as_bool) == Some(true) && !self.has_unsaved_documents() && !sheet_up {
             self.quit_requested = true;
         }
         Ok(json!({"closed": true}))

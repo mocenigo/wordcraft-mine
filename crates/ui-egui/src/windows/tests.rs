@@ -841,3 +841,154 @@ fn quitting_with_sheets_asks_in_every_unsaved_window_at_once() {
     assert_eq!(asked.len(), 2, "one sheet per unsaved window: {asked:?}");
     assert_eq!(asked, ["Document1 • - WordCraft", "Document2 • - WordCraft"], "each on its own window");
 }
+
+/// The sheets Quit shows answer like one prompt: Cancel on any of them stops the quit, so
+/// Don't Save on another later closes its document and leaves the app open.
+#[test]
+fn quitting_with_sheets_stops_at_cancel_on_any_of_them() {
+    let ctx = backend();
+    let mut a = app("One");
+    let one = a.session.document_id();
+    frames(&ctx, &mut a, 2);
+    a.run("file.new", json!({})).unwrap();
+    a.run("text.insert", json!({"text": "Two"})).unwrap();
+    frames(&ctx, &mut a, 2);
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let log = asked.clone();
+    a.services.save_prompt = Some(Box::new(move |window, _, _| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        log.borrow_mut().push((window, tx));
+        Some(rx)
+    }));
+
+    assert!(!a.quit());
+    frames(&ctx, &mut a, 4);
+    let answer = |name: &str, choice: &str| {
+        let asked = asked.borrow();
+        let (_, tx) = asked.iter().find(|(w, _)| w.starts_with(name)).expect("asked");
+        tx.send(choice.into()).unwrap();
+    };
+    answer("Document1", "cancel");
+    frames(&ctx, &mut a, 4);
+    // Document1's changes are saved some other way while Document2's sheet is still up.
+    a.session.with_document(one, |s| s.dirty = false).unwrap();
+    answer("Document2", "dontSave");
+    frames(&ctx, &mut a, 4);
+    assert!(!a.quit_requested, "Cancel on Document1's sheet stopped the quit");
+}
+
+/// The sheets Quit shows all answer before it quits: a document AutoSave saves while its sheet
+/// is up still has that sheet to answer, so Don't Save on another doesn't quit yet.
+#[test]
+fn quitting_with_sheets_waits_for_a_sheet_whose_document_autosaved() {
+    let ctx = backend();
+    let mut a = app("One");
+    let one = a.session.document_id();
+    frames(&ctx, &mut a, 2);
+    a.run("file.new", json!({})).unwrap();
+    a.run("text.insert", json!({"text": "Two"})).unwrap();
+    frames(&ctx, &mut a, 2);
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let log = asked.clone();
+    a.services.save_prompt = Some(Box::new(move |window, _, _| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        log.borrow_mut().push((window, tx));
+        Some(rx)
+    }));
+
+    assert!(!a.quit());
+    frames(&ctx, &mut a, 4);
+    let answer = |name: &str, choice: &str| {
+        let asked = asked.borrow();
+        let (_, tx) = asked.iter().find(|(w, _)| w.starts_with(name)).expect("asked");
+        tx.send(choice.into()).unwrap();
+    };
+    // AutoSave writes Document1 while its sheet is still up.
+    a.session.with_document(one, |s| s.dirty = false).unwrap();
+    answer("Document2", "dontSave");
+    frames(&ctx, &mut a, 4);
+    assert!(!a.quit_requested, "Document1's sheet is still up");
+    answer("Document1", "dontSave");
+    frames(&ctx, &mut a, 4);
+    assert!(a.quit_requested, "the last sheet answered quits");
+}
+
+/// A sheet answered Save is still at its Save As while another window on that document saves
+/// it: Don't Save on another sheet doesn't quit yet, and cancelling the Save As stops Quit.
+#[test]
+fn quitting_with_sheets_waits_for_a_save_as_another_window_saved_meanwhile() {
+    let ctx = backend();
+    let mut a = app("One");
+    frames(&ctx, &mut a, 2);
+    a.run("view.newWindow", json!({})).unwrap();
+    frames(&ctx, &mut a, 2);
+    a.run("file.new", json!({})).unwrap();
+    a.run("text.insert", json!({"text": "Two"})).unwrap();
+    frames(&ctx, &mut a, 2);
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let log = asked.clone();
+    a.services.save_prompt = Some(Box::new(move |window, _, _| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        log.borrow_mut().push((window, tx));
+        Some(rx)
+    }));
+    let pickers = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let log = pickers.clone();
+    a.services.file_dialog = Some(Box::new(move |_| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        log.borrow_mut().push(tx);
+        rx
+    }));
+
+    assert!(!a.quit());
+    frames(&ctx, &mut a, 4);
+    let answer = |name: &str, choice: &str| {
+        let asked = asked.borrow();
+        let (_, tx) = asked.iter().find(|(w, _)| w.starts_with(name)).expect("asked");
+        tx.send(choice.into()).unwrap();
+    };
+    answer("Document1", "save");
+    frames(&ctx, &mut a, 4);
+    assert_eq!(pickers.borrow().len(), 1, "Save asks where");
+    // The other window on Document1 saves it while that Save As is still open.
+    focus(ViewportId::ROOT);
+    frames(&ctx, &mut a, 2);
+    assert!(a.file_dialog.is_none(), "this window has no picker of its own yet");
+    a.save_as_dialog();
+    let path = std::env::temp_dir().join(format!("wordcraft-windows-quit-save-as-{}.docx", std::process::id()));
+    pickers.borrow()[1].send(Ok(vec![path.to_string_lossy().into_owned()])).unwrap();
+    frames(&ctx, &mut a, 4);
+    assert!(path.exists(), "the other window saved Document1");
+    answer("Document2", "dontSave");
+    frames(&ctx, &mut a, 4);
+    assert!(!a.quit_requested, "Document1's Save As is still open");
+    pickers.borrow()[0].send(Ok(vec![])).unwrap();
+    frames(&ctx, &mut a, 4);
+    assert!(!a.quit_requested && !a.quitting, "cancelling the Save As stops Quit");
+    let _ = std::fs::remove_file(path);
+}
+
+/// Quit asks about a document with unsaved work that two windows show (View › New Window),
+/// rather than closing one of its windows and asking nothing; Don't Save then quits.
+#[test]
+fn quitting_with_sheets_asks_about_a_document_in_two_windows() {
+    let ctx = backend();
+    let mut a = app("One");
+    frames(&ctx, &mut a, 2);
+    a.run("view.newWindow", json!({})).unwrap();
+    frames(&ctx, &mut a, 2);
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let log = asked.clone();
+    a.services.save_prompt = Some(Box::new(move |_, _, _| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        log.borrow_mut().push(tx);
+        Some(rx)
+    }));
+
+    assert!(!a.quit());
+    frames(&ctx, &mut a, 4);
+    assert_eq!(asked.borrow().len(), 1, "one sheet for the document");
+    asked.borrow()[0].send("dontSave".into()).unwrap();
+    frames(&ctx, &mut a, 4);
+    assert!(a.quit_requested, "Don't Save quits");
+}
