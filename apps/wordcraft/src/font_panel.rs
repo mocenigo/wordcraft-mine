@@ -141,10 +141,15 @@ impl FontPanel {
         let mut traits = NSFontTraitMask::empty();
         traits.set(NSFontTraitMask::BoldFontMask, face.bold);
         traits.set(NSFontTraitMask::ItalicFontMask, face.italic);
-        // A family the system doesn't have (a document's, a font WordCraft carries) shows the system font.
-        let font = manager
-            .fontWithFamily_traits_weight_size(&NSString::from_str(&face.family), traits, 5, face.size)
-            .unwrap_or_else(|| NSFont::systemFontOfSize(face.size));
+        // A family the system doesn't have (a document's, a font WordCraft carries) shows the system
+        // font, bold and italic as the selection is.
+        let font = manager.fontWithFamily_traits_weight_size(&NSString::from_str(&face.family), traits, 5, face.size).unwrap_or_else(|| {
+            // `convertFont:toHaveTrait:` adds one trait per call.
+            [NSFontTraitMask::BoldFontMask, NSFontTraitMask::ItalicFontMask]
+                .into_iter()
+                .filter(|t| traits.contains(*t))
+                .fold(NSFont::systemFontOfSize(face.size), |f, t| manager.convertFont_toHaveTrait(&f, t))
+        });
         self.target.ivars().current.replace(font.clone());
         manager.setSelectedFont_isMultiple(&font, false);
         self.shown.replace(Some(face));
