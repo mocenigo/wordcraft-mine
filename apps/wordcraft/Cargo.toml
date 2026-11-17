@@ -42,8 +42,9 @@ fmv-macos-events = "=0.1.0"
 # at this version; this adds the `NSAccessibility` bindings and, to fit the title bar around the
 # traffic lights, the window, button and view ones; `NSPasteboard` for the clipboard's RTF; the
 # menu bar's items and events; and
-# the Open panel, shown as a window of its own with a completion block (`open_panel`).
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSOpenPanel", "NSSavePanel", "NSMenu", "NSMenuItem", "NSEvent", "NSGraphicsContext"] }
+# the Open panel, shown as a window of its own with a completion block (`open_panel`); and the
+# font and colour panels (`font_panel`).
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSOpenPanel", "NSSavePanel", "NSMenu", "NSMenuItem", "NSEvent", "NSGraphicsContext", "NSColor", "NSColorPanel", "NSColorSpace", "objc2-core-foundation"] }
 # The Save Changes sheet's completion handler (`src/save_sheet.rs`). Already in the build through
 # objc2-app-kit, at this version.
 block2 = "0.6"
@@ -51,8 +52,9 @@ objc2 = "0.6"
 # A copied equation's MathML goes on the pasteboard as `public.mathml.presentation` beside
 # arboard's HTML and text (#1297), through NSPasteboard's safe `setString:forType:`. Already in
 # the build through arboard, at this version; this adds only the NSString bindings, and NSData
-# for the clipboard's RTF (`public.rtf`); arrays and URLs for the Open panel; geometry for the menu bar.
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData", "NSArray", "NSURL", "NSGeometry"] }
+# for the clipboard's RTF (`public.rtf`); arrays and URLs for the Open panel; geometry for the menu bar;
+# dictionaries and numbers for the font panel's attributes.
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData", "NSArray", "NSURL", "NSGeometry", "NSDictionary", "NSValue"] }
 # Closing the window must quit through NSApplication rather than by dropping the NSWindow
 # inside the AppKit run loop (see `schedule_macos_terminate`).
 dispatch2 = "0.3"
