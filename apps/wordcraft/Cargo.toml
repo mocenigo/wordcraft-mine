@@ -44,7 +44,7 @@ fmv-macos-events = "=0.1.0"
 # menu bar's items and events; and
 # the Open panel, shown as a window of its own with a completion block (`open_panel`); and the
 # font and colour panels (`font_panel`).
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSOpenPanel", "NSSavePanel", "NSMenu", "NSMenuItem", "NSEvent", "NSGraphicsContext", "NSColor", "NSColorPanel", "NSColorSpace", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSWindowRestoration", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSOpenPanel", "NSSavePanel", "NSMenu", "NSMenuItem", "NSEvent", "NSGraphicsContext", "NSColor", "NSColorPanel", "NSColorSpace", "objc2-core-foundation"] }
 # The Save Changes sheet's completion handler (`src/save_sheet.rs`). Already in the build through
 # objc2-app-kit, at this version.
 block2 = "0.6"
