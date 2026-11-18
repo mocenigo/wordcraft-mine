@@ -76,6 +76,7 @@ impl WordApp {
             #[cfg(not(target_arch = "wasm32"))]
             file_browser,
             tab,
+            ribbon_collapsed,
             backstage,
             backstage_page,
             print,
@@ -91,6 +92,7 @@ impl WordApp {
             session,
             ui: UiState {
                 tab,
+                ribbon_collapsed,
                 backstage,
                 backstage_page,
                 print,
