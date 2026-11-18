@@ -9151,3 +9151,21 @@ fn show_fonts_opens_the_hosts_panel_on_the_selections_font() {
     let st = a.session.run("format.state", &json!({})).unwrap();
     assert_eq!(*shown.borrow(), Some((st["font"].as_str().unwrap_or("").to_string(), 15.0, true)));
 }
+
+/// A click on the tab shown hides the ribbon and a click on any tab brings it back, as in
+/// Office; a click on another tab while the ribbon is up only switches to it.
+#[test]
+fn a_click_on_the_shown_tab_hides_the_ribbon() {
+    use egui_kittest::kittest::Queryable;
+    let mut h = harness(app());
+    h.run_steps(4);
+    h.get_by_label("Insert").click();
+    h.run_steps(3);
+    assert!(h.state().ui.tab == "Insert" && !h.state().ui.ribbon_collapsed, "another tab only switches");
+    h.get_by_label("Insert").click();
+    h.run_steps(3);
+    assert!(h.state().ui.ribbon_collapsed, "a click on the tab shown hides the ribbon");
+    h.get_by_label("Home").click();
+    h.run_steps(3);
+    assert!(h.state().ui.tab == "Home" && !h.state().ui.ribbon_collapsed, "a click on any tab brings it back");
+}
