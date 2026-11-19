@@ -1,7 +1,8 @@
-//! Find and Replace as a Mac utility panel (`Services::find_window`): the app shows it in a window
-//! of its own, and this ties that window to the document window it was opened from, as a child
-//! window. It moves with that window, stays just above it, goes behind another document's window
-//! with it, and hides while WordCraft is in the background. It is not listed in the Window menu.
+//! The app's utility panels — Find and Replace (`Services::find_window`) and the Paragraph dialog
+//! (`Services::paragraph_window`) — as Mac panels: each is shown in a window of its own, and this
+//! ties that window to the document window it was opened from, as a child window. It moves with
+//! that window, stays just above it, goes behind another document's window with it, and hides
+//! while WordCraft is in the background. It is not listed in the Window menu.
 //!
 //! The one exception to the workspace's no-`unsafe` rule (AGENTS.md): AppKit marks
 //! `addChildWindow:ordered:` unsafe, and nothing else in these bindings ties two windows.
@@ -10,17 +11,23 @@ use objc2::MainThreadMarker;
 use objc2_app_kit::{NSApplication, NSWindow, NSWindowOrderingMode};
 use wordcraft_ui_egui::i18n::t;
 
-/// Ties every Find and Replace window that has no parent yet to the window just below it, the one
-/// it was opened from. Call every frame; it does nothing once they are tied.
+/// The translated titles of the windows the app shows as utility panels.
+fn panel_titles() -> [&'static str; 2] {
+    [t("Find and Replace"), t("Paragraph")]
+}
+
+/// Ties every panel that has no parent yet to the window just below it, the one it was opened
+/// from. Call every frame; it does nothing once they are tied.
 pub fn tie(mtm: MainThreadMarker) {
-    let title = t("Find and Replace");
+    let titles = panel_titles();
+    let is_panel = |w: &NSWindow| titles.iter().any(|title| w.title().to_string() == *title);
     let ordered = NSApplication::sharedApplication(mtm).orderedWindows();
     let ordered: Vec<_> = ordered.iter().filter(|w| w.isVisible()).collect();
     for (i, panel) in ordered.iter().enumerate() {
-        if panel.title().to_string() != title || panel.parentWindow().is_some() {
+        if !is_panel(panel) || panel.parentWindow().is_some() {
             continue;
         }
-        let Some(parent) = ordered[i + 1..].iter().find(|w| w.title().to_string() != title) else {
+        let Some(parent) = ordered[i + 1..].iter().find(|w| !is_panel(w)) else {
             continue;
         };
         panel.setHidesOnDeactivate(true);

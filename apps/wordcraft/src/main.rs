@@ -805,6 +805,7 @@ fn main() -> eframe::Result {
             {
                 app.services.save_prompt = Some(save_prompt);
                 app.services.find_window = true;
+                app.services.paragraph_window = true;
             }
             #[cfg(target_os = "macos")]
             let fonts = objc2::MainThreadMarker::new().map(|mtm| {
