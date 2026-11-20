@@ -191,6 +191,54 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) -> RibbonOutput<String> {
     if collapsed != app.ui.ribbon_collapsed {
         let _ = app.run("ui.collapseRibbon", json!({}));
     }
+    // As in Office (#6996): a press on the tab shown hides the ribbon, and a press on any tab but File
+    // brings it back. The framework reports the tab a press picks as `shown` — also when nothing was
+    // pressed — so the pressed tab is told apart by hit-testing the strip's recorded tab rects. The
+    // tab and the collapsed state are snapshotted at the start of the frame (a frame runs more than
+    // one pass, and the press has already switched the tab by the second), and the target state is
+    // applied idempotently; a double click is left to the framework's own minimise toggle above.
+    let press = ui.input(|i| i.pointer.primary_pressed().then(|| i.pointer.interact_pos()).flatten());
+    if let (Some(pos), Some(controls)) = (press, out.controls.as_ref()) {
+        let ctx = ui.ctx().clone();
+        let layer = ui.layer_id();
+        let pressed = out
+            .tab_ids
+            .iter()
+            .find(|(_, node)| {
+                controls
+                    .elements
+                    .iter()
+                    .enumerate()
+                    .any(|(i, el)| el.node() == *node && controls.rect_in(&ctx, i, layer).is_some_and(|rect| rect.contains(pos)))
+            })
+            .map(|(tab, _)| tab.clone());
+        if let Some(tab) = pressed
+            && tab != "File"
+            && !app.session.view.focus_mode
+        {
+            let frame = ctx.cumulative_frame_nr();
+            let id = ui.scope_id().with("ribbon-frame-start");
+            let (pre_tab, pre_collapsed) = ctx.data_mut(|d| {
+                let entry = d.get_temp_mut_or::<(u64, String, bool)>(id, (frame, app.ui.tab.clone(), app.ui.ribbon_collapsed));
+                if entry.0 != frame {
+                    *entry = (frame, app.ui.tab.clone(), app.ui.ribbon_collapsed);
+                }
+                (entry.1.clone(), entry.2)
+            });
+            let target = if tab == pre_tab {
+                Some(!pre_collapsed)
+            } else if pre_collapsed {
+                Some(false)
+            } else {
+                None
+            };
+            if let Some(target) = target
+                && app.ui.ribbon_collapsed != target
+            {
+                let _ = app.run("ui.collapseRibbon", json!({}));
+            }
+        }
+    }
     // A click on a tab is reported as `shown`, a pick from the overflow menu as `picked`.
     if let Some(tab) = out.picked.clone().or_else(|| out.shown.clone())
         && tab != app.ui.tab
