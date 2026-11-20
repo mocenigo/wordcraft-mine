@@ -1783,25 +1783,21 @@ fn colour_fields_say_their_label_and_colour_in_the_interface_language() {
     }
 }
 
-/// Compare's Browse… asks for a "compare" pick, so the macOS host keeps it a sheet on this
-/// document; only File › Open's "document" pick gets a panel of its own.
+/// Compare's Browse… asks for a "compare" pick, so its remembered folder is its own and the
+/// macOS host doesn't confuse it with File › Open's "document" pick (which the framework shows
+/// as a free-standing panel).
 #[test]
 fn compare_browse_asks_for_a_compare_pick() {
     use egui_kittest::kittest::Queryable;
-    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
-    let log = asked.clone();
-    let services = crate::Services {
-        file_dialog: Some(Box::new(move |req| {
-            log.borrow_mut().push(req);
-            std::sync::mpsc::channel().1
-        })),
-        ..Default::default()
-    };
-    let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), services);
-    let _ = app.run("document.setText", json!({"text": "text"}));
-    let mut h = app_harness(app);
+    let files = std::sync::Arc::new(craft::host::ScriptedFiles::held());
+    let a = app_with("text").with_host(std::sync::Arc::new(craft::host::Host::builder(crate::APP).files(files.clone()).build()));
+    let mut h = app_harness(a);
+    crate::test_harness::frames(&mut h, 4);
     h.state_mut().run("ui.dialog", json!({"name": "compare"})).unwrap();
-    h.run_steps(2);
+    crate::test_harness::frames(&mut h, 4);
+    // "Another file" enables the row's Browse… button.
+    h.query_all_by_label("Another file").next().expect("Another file").click_accesskit();
+    crate::test_harness::frames(&mut h, 4);
     h.query_all_by_label("Browse…").next().expect("Browse…").click_accesskit();
     h.run_steps(2);
     assert_eq!(asked.borrow().as_slice(), [crate::file_dialogs::FileDialogRequest::Open { purpose: "compare".into() }]);
@@ -1837,4 +1833,7 @@ fn find_without_the_window_service_stays_in_the_document_window() {
     let windowed =
         h.state().dialog_host.get_by_id::<super::find_replace::FindHost>(id).map(craft::ui::dialog::StackDialog::windowed).unwrap_or_default();
     assert!(!windowed);
+    crate::test_harness::frames(&mut h, 4);
+    let purposes: Vec<_> = files.requests().iter().map(|r| r.purpose.clone()).collect();
+    assert_eq!(purposes, ["compare"], "Compare's Browse… asks for a compare pick");
 }
