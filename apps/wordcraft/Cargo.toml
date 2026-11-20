@@ -71,6 +71,11 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 # The Save Changes sheet's completion handler (src/save_sheet.rs). Already in the build through
 # objc2-app-kit, at this version.
 block2 = "0.6"
+# The system font panel (src/font_panel.rs): NSFontPanel and the font manager that drives it.
+# AGENTS.md names that module as the workspace's one `unsafe` exception. Already in the build
+# through eframe, at these versions.
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSWindow", "NSWindowRestoration", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSColor", "NSColorPanel", "NSColorSpace", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData", "NSDictionary", "NSValue"] }
 objc2 = "0.6"
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]

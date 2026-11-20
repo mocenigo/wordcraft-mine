@@ -40,4 +40,8 @@ pub struct Services {
     /// Desktop (macOS): show Find and Replace in a window of its own, which the app keeps above
     /// the document's window as a utility panel, instead of in the document window.
     pub find_window: bool,
+    /// Desktop: show the system's font panel (macOS) on the selection's font, given its family,
+    /// size in points, bold and italic (Mod+D, `ui.showFonts`). The host formats the selection
+    /// with what the user picks there.
+    pub show_fonts: Option<Box<dyn Fn(&str, f64, bool, bool)>>,
 }

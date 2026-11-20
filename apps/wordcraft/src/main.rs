@@ -18,6 +18,7 @@ mod control_server;
 mod default_apps;
 #[cfg(target_os = "macos")]
 mod panels;
+mod font_panel;
 mod prefs;
 mod region;
 #[cfg(target_os = "macos")]
@@ -56,6 +57,9 @@ struct App {
     /// Shows the Save Changes sheets the app queued (macOS).
     #[cfg(target_os = "macos")]
     sheets: save_sheet::Launcher,
+    /// The system font panel (macOS), shown through `Services::show_fonts`.
+    #[cfg(target_os = "macos")]
+    fonts: Option<std::rc::Rc<font_panel::FontPanel>>,
     /// Feeds the files dropped on the window into the app's intake (`Services::intake`), the one
     /// queue the OS's requests are read from.
     drops: IntakeSender,
@@ -71,6 +75,14 @@ impl App {
     /// One frame's logic: what the OS asked, the app, its file dialogs, then the root window's close
     /// path. Without `frame` (a test over no window) the dialogs have no parent window.
     fn logic_pass(&mut self, ctx: &egui::Context, frame: Option<&eframe::Frame>) {
+        #[cfg(target_os = "macos")]
+        if let Some(panel) = &self.fonts {
+            for pick in panel.picks() {
+                apply_font_pick(&mut self.app, &pick);
+            }
+            let app = &mut self.app;
+            panel.follow(|| selection_face(app));
+        }
         self.app.logic(ctx);
         #[cfg(target_os = "macos")]
         if let Some(mtm) = objc2::MainThreadMarker::new() {
@@ -210,6 +222,50 @@ fn x11_libraries() -> Result<(), String> {
         missing.push("libxkbcommon-x11.so.0 could not be loaded".into());
     }
     if missing.is_empty() { Ok(()) } else { Err(missing.join("; ")) }
+}
+
+/// The selection's font, as the ribbon's Font group shows it.
+#[cfg(target_os = "macos")]
+fn selection_face(app: &mut WordApp) -> font_panel::Face {
+    let st = app.session.run("format.state", &serde_json::json!({})).unwrap_or_default();
+    font_panel::Face {
+        family: st["font"].as_str().unwrap_or("").into(),
+        size: st["size"].as_f64().unwrap_or(12.0),
+        bold: st["bold"] == true,
+        italic: st["italic"] == true,
+    }
+}
+
+/// Formats the selection with what the user changed in the font panel, as the ribbon's Font
+/// group and the Font dialog do.
+#[cfg(target_os = "macos")]
+fn apply_font_pick(app: &mut WordApp, pick: &font_panel::Pick) {
+    use font_panel::Line;
+    use serde_json::json;
+    let family = pick.family.as_ref().map(|f| app.previews.font_stored(f));
+    let underline = |line: Line| match line {
+        Line::None => json!({"value": false}),
+        Line::Single => json!({"style": "single"}),
+        Line::Double => json!({"style": "double"}),
+    };
+    // Single and double strikethrough are separate properties; one is set, the other cleared.
+    let strike = |line: Line| [("format.strikethrough", line == Line::Single), ("format.doubleStrikethrough", line == Line::Double)];
+    let runs = [
+        family.map(|name| ("format.font", json!({"name": name}))),
+        pick.size.map(|size| ("format.size", json!({"size": size}))),
+        pick.bold.map(|value| ("format.bold", json!({"value": value}))),
+        pick.italic.map(|value| ("format.italic", json!({"value": value}))),
+        pick.color.map(|[r, g, b]| ("format.color", json!({"color": format!("{r:02X}{g:02X}{b:02X}")}))),
+        pick.underline.map(|line| ("format.underline", underline(line))),
+    ]
+    .into_iter()
+    .flatten()
+    .chain(pick.strike.into_iter().flat_map(strike).map(|(id, value)| (id, json!({"value": value}))));
+    for (id, params) in runs {
+        if let Err(e) = app.run(id, params) {
+            log::warn!("font panel: {id}: {e}");
+        }
+    }
 }
 
 /// The type of the "make WordCraft the default app" button's action.
@@ -573,6 +629,15 @@ fn main() -> eframe::Result {
             {
                 app.services.save_prompt = Some(save_prompt);
                 app.services.find_window = true;
+            let fonts = objc2::MainThreadMarker::new().map(|mtm| {
+                let wake = ctx.clone();
+                std::rc::Rc::new(font_panel::FontPanel::new(mtm, move || wake.request_repaint()))
+            });
+            #[cfg(target_os = "macos")]
+            if let Some(panel) = fonts.clone() {
+                app.services.show_fonts = Some(Box::new(move |family, size, bold, italic| {
+                    panel.show(font_panel::Face { family: family.into(), size, bold, italic });
+                }));
             }
             // PLAN: writer note 9 puts `with_settings` after `with_control`; it comes first here because
             // the region check below reads the saved region the settings apply.
@@ -630,6 +695,7 @@ fn main() -> eframe::Result {
                 panels,
                 #[cfg(target_os = "macos")]
                 sheets,
+                fonts,
                 drops,
                 settings,
                 spool,
@@ -847,6 +913,7 @@ mod smoke {
                     panels,
                     #[cfg(target_os = "macos")]
                     sheets,
+                    fonts: None,
                     drops,
                     settings,
                     spool,
