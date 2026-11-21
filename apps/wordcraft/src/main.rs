@@ -17,9 +17,9 @@ mod appimage_env;
 mod control_server;
 mod default_apps;
 #[cfg(target_os = "macos")]
-mod panels;
-#[cfg(target_os = "macos")]
 mod font_panel;
+#[cfg(target_os = "macos")]
+mod panels;
 mod prefs;
 mod region;
 #[cfg(target_os = "macos")]
