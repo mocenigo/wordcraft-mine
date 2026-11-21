@@ -300,9 +300,8 @@ fn services(spool: Spool, intake: FileIntake) -> Services {
         templates_dir: wordcraft_control_key::settings_dir().map(|d| d.join("Templates")),
         make_default_app,
         intake: Some(intake),
-        // Complete build only: the Paragraph dialog stays in the document window until the framework can show a
-        // dialog's content alone in a window sized to its page (the windowed one scrolls inside a fixed window).
-        paragraph_window: false,
+        // macOS only: the Paragraph dialog opens as a utility panel in a window of its own.
+        paragraph_window: cfg!(target_os = "macos"),
         ..Default::default()
     }
 }
