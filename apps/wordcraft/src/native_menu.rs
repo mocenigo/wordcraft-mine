@@ -295,7 +295,7 @@ mod bar {
     use muda::accelerator::Accelerator;
     use muda::{IsMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
     use serde_json::{Value, json};
-    use wordcraft_ui_egui::{WordApp, i18n, widgets};
+    use wordcraft_ui_egui::{WordApp, i18n};
 
     use super::{ABOUT, Entry, InputKind, MENUS, SETTINGS, UPDATES};
 
@@ -577,7 +577,7 @@ mod bar {
                         if events.is_empty() {
                             // Paste with no text on the clipboard (a picture): the ribbon's Paste,
                             // which reads pictures, HTML and RTF itself (#45, #584, #687).
-                            if app.canvas.focused
+                            if app.canvas.focused(&ctx)
                                 && let Err(err) = app.run("edit.paste", json!({}))
                             {
                                 app.status(err);
@@ -590,7 +590,7 @@ mod bar {
                 ctx.request_repaint();
             }
             for t in &mut me.tracked {
-                let enabled = widgets::enabled(app, t.id);
+                let enabled = command_enabled(app, t.id);
                 if enabled != t.enabled {
                     t.item.set_enabled(enabled);
                     t.enabled = enabled;
@@ -631,6 +631,12 @@ mod bar {
             let _ = tx.send((e, by_key));
             ctx.request_repaint();
         }));
+    }
+
+    /// Whether command `id` can run now: engine commands answer for themselves; the interface
+    /// commands are enabled unless the app says otherwise (as the ribbon's board gates them).
+    fn command_enabled(app: &WordApp, id: &str) -> bool {
+        if app.session.registry.get(id).is_some() { app.session.why_disabled(id).is_none() } else { id.starts_with("ui.") }
     }
 
     /// The input events the keyboard would have produced (as egui-winit makes them).

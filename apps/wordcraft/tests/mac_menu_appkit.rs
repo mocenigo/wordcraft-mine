@@ -75,7 +75,7 @@ fn main() {
     assert!(bar.performKeyEquivalent(&key("d", 2, NSEventModifierFlags::Command)));
     native_menu::NativeMenu::frame(&mut menu, &mut app, &ctx);
     assert!(shown.get(), "⌘D opened the font panel");
-    assert!(app.dialog.is_none(), "not WordCraft's Font dialog");
+    assert!(app.dialog_host.is_empty(), "not WordCraft's Font dialog");
 
     println!("mac_menu_appkit: ok");
 }

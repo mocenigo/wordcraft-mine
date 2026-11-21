@@ -42,6 +42,8 @@ craft = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+# The menu bar test reads the system clipboard for its paste case.
+arboard = { workspace = true }
 # Temporary settings folders for the `prefs` tests.
 tempfile = "3"
 # The frame driver of the `smoke` test.
