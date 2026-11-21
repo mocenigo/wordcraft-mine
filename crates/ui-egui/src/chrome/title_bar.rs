@@ -92,11 +92,28 @@ const TITLE_FIT_GAP: f32 = 16.0;
 
 /// AutoSave and the Quick Access Toolbar, at the start of the bar; returns the rect they took.
 fn leading(app: &mut WordApp, ui: &mut Ui) -> Option<egui::Rect> {
-    let switch = autosave(app, ui);
+    // The bar's row puts each control at its top. The toolbar buttons are as tall as the bar, so they sit on its centre
+    // line (and the traffic lights'); the shorter switch starts lower by half the difference, from its last height.
+    let id = egui::Id::new("wordcraft.title_bar.autosave_height");
+    let max = ui.max_rect();
+    let height = ui.ctx().data(|d| d.get_temp::<f32>(id)).unwrap_or(max.height());
+    let drop = ((max.height() - height) / 2.0).max(0.0);
+    ui.add_space(AUTOSAVE_GAP);
+    let place = egui::Rect::from_min_max(egui::pos2(ui.cursor().left(), max.top() + drop), max.max);
+    let switch = ui.scope_builder(egui::UiBuilder::new().max_rect(place).layout(*ui.layout()), |ui| autosave(app, ui)).inner;
+    // A measuring pass reports no height; a new height moves the switch on the next frame.
+    if switch.height() > 0.0 && switch.height() != height {
+        ui.ctx().data_mut(|d| d.insert_temp(id, switch.height()));
+        ui.ctx().request_repaint();
+    }
+    ui.add_space(AUTOSAVE_GAP);
     // Hidden (#1945): neither the buttons nor the … menu; the title centres as before.
     let toolbar = if app.ui.quick_access_toolbar { quick_access(app, ui) } else { None };
     super::union([Some(switch), toolbar].into_iter().flatten())
 }
+
+/// The room kept before and after AutoSave, beyond the bar's own spacing.
+const AUTOSAVE_GAP: f32 = 8.0;
 
 /// The AutoSave switch: off and with the reason as its tooltip when AutoSave can't cover the document (#196,
 /// #176); a click then offers Save As where that helps. Returns the rect it took.

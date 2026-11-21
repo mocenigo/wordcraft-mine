@@ -475,3 +475,15 @@ fn the_mac_title_bar_moves_the_window_and_clears_the_traffic_lights() {
     assert!(!drag_moves_the_window(&mut h, at), "without the frame the title bar has no band (the bug this pins)");
     assert!(h.get_by_role_and_label(Role::Switch, "AutoSave").rect().min.x < lights);
 }
+
+/// The AutoSave switch, shorter than the Quick Access Toolbar's buttons, sits on their centre line (and so on the
+/// macOS traffic lights'), not at the top of the bar.
+#[test]
+fn the_autosave_switch_is_centred_on_the_toolbar_buttons() {
+    use egui::accesskit::Role;
+    let h = harness(new_app());
+    let switch = h.get_by_role_and_label(Role::Switch, "AutoSave").rect();
+    let save = h.get_by_role_and_label(Role::Button, "Save").rect();
+    assert!(switch.height() < save.height(), "the switch is the shorter: {switch:?} {save:?}");
+    assert!((switch.center().y - save.center().y).abs() <= 1.0, "AutoSave {switch:?} is centred on Save {save:?}");
+}
