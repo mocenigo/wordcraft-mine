@@ -94,7 +94,7 @@ const TITLE_FIT_GAP: f32 = 16.0;
 fn leading(app: &mut WordApp, ui: &mut Ui) -> Option<egui::Rect> {
     // The bar's row puts each control at its top. The toolbar buttons are as tall as the bar, so they sit on its centre
     // line (and the traffic lights'); the shorter switch starts lower by half the difference, from its last height.
-    let id = egui::Id::new("wordcraft.title_bar.autosave_height");
+    let id = egui::Id::unique("wordcraft.title_bar.autosave_height");
     let max = ui.max_rect();
     let height = ui.ctx().data(|d| d.get_temp::<f32>(id)).unwrap_or(max.height());
     let drop = ((max.height() - height) / 2.0).max(0.0);
