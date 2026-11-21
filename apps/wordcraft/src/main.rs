@@ -19,6 +19,8 @@ mod default_apps;
 #[cfg(target_os = "macos")]
 mod font_panel;
 #[cfg(target_os = "macos")]
+mod native_menu;
+#[cfg(target_os = "macos")]
 mod panels;
 mod prefs;
 mod region;
@@ -62,6 +64,9 @@ struct App {
     /// The system font panel (macOS), shown through `Services::show_fonts`.
     #[cfg(target_os = "macos")]
     fonts: Option<std::rc::Rc<font_panel::FontPanel>>,
+    /// The macOS menu bar (File, Edit, View, Go…), built on the first frame.
+    #[cfg(target_os = "macos")]
+    menu: Option<native_menu::NativeMenu>,
     /// Feeds the files dropped on the window into the app's intake (`Services::intake`), the one
     /// queue the OS's requests are read from.
     drops: IntakeSender,
@@ -86,6 +91,9 @@ impl App {
             panel.follow(|| selection_face(app));
         }
         self.app.logic(ctx);
+        // After `logic` has set the interface language the menu's labels follow.
+        #[cfg(target_os = "macos")]
+        native_menu::NativeMenu::frame(&mut self.menu, &mut self.app, ctx);
         #[cfg(target_os = "macos")]
         if let Some(mtm) = objc2::MainThreadMarker::new() {
             panels::tie(mtm);
@@ -137,6 +145,11 @@ impl eframe::App for App {
         let files = dropped_files(raw);
         if !files.is_empty() {
             self.drops.dropped(files, DropTarget::Elsewhere);
+        }
+        // Cut / Copy / Paste / Select All chosen in the menu bar arrive as the keyboard's would.
+        #[cfg(target_os = "macos")]
+        if let Some(menu) = self.menu.as_mut() {
+            raw.events.append(&mut menu.input);
         }
         embed::before_input(ctx, |out| self.app.frame_input(out));
     }
@@ -690,6 +703,8 @@ fn main() -> eframe::Result {
                 sheets,
                 #[cfg(target_os = "macos")]
                 fonts,
+                #[cfg(target_os = "macos")]
+                menu: None,
                 drops,
                 settings,
                 spool,
@@ -962,6 +977,8 @@ mod smoke {
                     sheets,
                     #[cfg(target_os = "macos")]
                     fonts: None,
+                    #[cfg(target_os = "macos")]
+                    menu: None,
                     drops,
                     settings,
                     spool,

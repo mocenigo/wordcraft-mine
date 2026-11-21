@@ -771,6 +771,8 @@ mod tests {
                 continue;
             }
             let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_engine::sample::sample_document()), Services::default());
+            // A window's first pass gives the app its context, which some dialogs open with.
+            app.logic(&egui::Context::default());
             let r = app.run(id, params.clone());
             // Commands that need something first (a search, a copy, an edit) say so, as their
             // keys do; that is not a dead item.
@@ -802,7 +804,7 @@ mod tests {
                 && !NEEDS_STATE.contains(&id)
             {
                 failures.push(format!("{id} {params}: {err}"));
-            } else if id == "ui.dialog" && app.dialog.is_none() {
+            } else if id == "ui.dialog" && app.dialog_host_mut().is_empty() {
                 failures.push(format!("{id} {params}: no such dialog"));
             }
         }

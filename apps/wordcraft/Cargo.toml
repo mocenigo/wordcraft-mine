@@ -42,8 +42,6 @@ craft = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
-# The menu bar test reads the system clipboard for its paste case.
-arboard = { workspace = true }
 # Temporary settings folders for the `prefs` tests.
 tempfile = "3"
 # The frame driver of the `smoke` test.
@@ -54,6 +52,8 @@ craft = { workspace = true, features = ["ui-testing"] }
 winresource = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# The menu bar's Paste reads the system clipboard, as egui-winit does for ⌘V (its test does too).
+arboard = { workspace = true }
 # Finder double-click, Open With, Dock drops and `open -a WordCraft letter.docx` arrive as a
 # kAEOpenDocuments Apple event, which winit doesn't handle (#27).
 craft = { workspace = true, features = ["platform-apple-events"] }
