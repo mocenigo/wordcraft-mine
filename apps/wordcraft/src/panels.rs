@@ -1,7 +1,7 @@
-//! The app's utility panels — Find and Replace (`Services::find_window`) and the Paragraph dialog
-//! (`Services::paragraph_window`) — as Mac panels: each is shown in a window of its own, and this
-//! ties that window to the document window it was opened from, as a child window. It moves with
-//! that window, stays just above it, goes behind another document's window with it, and hides
+//! The app's utility panels — Find and Replace (`Services::find_window`) and the Paragraph and Tabs
+//! dialogs (`Services::paragraph_window`) — as Mac panels: each is shown in a window of its own, and
+//! this ties that window to the document window it was opened from, as a child window. It moves
+//! with that window, stays just above it, goes behind another document's window with it, and hides
 //! while WordCraft is in the background. It is not listed in the Window menu.
 //!
 //! The one exception to the workspace's no-`unsafe` rule (AGENTS.md names this module): AppKit
@@ -12,8 +12,8 @@ use objc2_app_kit::{NSApplication, NSWindow, NSWindowOrderingMode};
 use wordcraft_ui_egui::i18n::t;
 
 /// The translated titles of the windows the app shows as utility panels.
-fn panel_titles() -> [&'static str; 2] {
-    [t("Find and Replace"), t("Paragraph")]
+fn panel_titles() -> [&'static str; 3] {
+    [t("Find and Replace"), t("Paragraph"), t("Tabs")]
 }
 
 /// Ties every panel that has no parent yet to the window just below it, the one it was opened
