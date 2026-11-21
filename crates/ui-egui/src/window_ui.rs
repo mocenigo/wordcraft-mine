@@ -74,7 +74,6 @@ pub(crate) const NOT_COUNTED: (u64, crate::StatusCounts) = (u64::MAX, crate::Sta
 impl WindowUi {
     /// A new window showing open document `document`: nothing open over the page, Home tab.
     pub(crate) fn new(document: u64) -> WindowUi {
-        let Prefs { tab, backstage, backstage_page, nav_collapsed, .. } = Prefs::default();
         let Prefs { tab, backstage, backstage_page, nav_collapsed, ribbon_collapsed, .. } = Prefs::default();
         WindowUi {
             canvas: Default::default(),
@@ -229,7 +228,6 @@ impl WordApp {
         let Prefs {
             // App-wide: preferences, recent lists, and the settings the session owns while
             // running.
-            ribbon_collapsed: _,
             quick_access_toolbar: _,
             recent: _,
             recent_symbols: _,

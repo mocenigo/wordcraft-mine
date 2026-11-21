@@ -1799,8 +1799,11 @@ fn compare_browse_asks_for_a_compare_pick() {
     h.query_all_by_label("Another file").next().expect("Another file").click_accesskit();
     crate::test_harness::frames(&mut h, 4);
     h.query_all_by_label("Browse…").next().expect("Browse…").click_accesskit();
-    h.run_steps(2);
-    assert_eq!(asked.borrow().as_slice(), [crate::file_dialogs::FileDialogRequest::Open { purpose: "compare".into() }]);
+    crate::test_harness::frames(&mut h, 4);
+    let purposes: Vec<_> = files.requests().iter().map(|r| r.purpose.clone()).collect();
+    assert_eq!(purposes, ["compare"], "Compare's Browse… asks for a compare pick");
+}
+
 /// `Services::find_window`: Find and Replace asks for a window of its own (a macOS utility
 /// panel), so `DialogHost::run` leaves it out of the document window's pass and `run_windowed`
 /// drives it; cancelling closes it.
@@ -1833,9 +1836,8 @@ fn find_without_the_window_service_stays_in_the_document_window() {
     let windowed =
         h.state().dialog_host.get_by_id::<super::find_replace::FindHost>(id).map(craft::ui::dialog::StackDialog::windowed).unwrap_or_default();
     assert!(!windowed);
-    crate::test_harness::frames(&mut h, 4);
-    let purposes: Vec<_> = files.requests().iter().map(|r| r.purpose.clone()).collect();
-    assert_eq!(purposes, ["compare"], "Compare's Browse… asks for a compare pick");
+}
+
 /// `Services::paragraph_window`: the Paragraph dialog asks for a window of its own (a macOS
 /// utility panel), so `DialogHost::run` leaves it out of the document window's pass and
 /// `run_windowed` drives it; its OK still files through the windowed path and runs `para.set`.

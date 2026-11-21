@@ -18,6 +18,7 @@ mod control_server;
 mod default_apps;
 #[cfg(target_os = "macos")]
 mod panels;
+#[cfg(target_os = "macos")]
 mod font_panel;
 mod prefs;
 mod region;
@@ -618,8 +619,7 @@ fn main() -> eframe::Result {
             if prefs::enabled()
                 && let Some(path) = prefs::user_dict_path()
             {
-                prefs::load_user_dictionary(&settings, &path);
-                session.user_dict_path = Some(path);
+                prefs::load_user_dictionary(&mut session, &settings, path);
             }
             let spool = Spool::new(host.jobs_shared().clone());
             let mut app = WordApp::new(session, services(spool.clone(), intake)).with_host(host).with_settings(settings.clone());
@@ -629,6 +629,8 @@ fn main() -> eframe::Result {
             {
                 app.services.save_prompt = Some(save_prompt);
                 app.services.find_window = true;
+            }
+            #[cfg(target_os = "macos")]
             let fonts = objc2::MainThreadMarker::new().map(|mtm| {
                 let wake = ctx.clone();
                 std::rc::Rc::new(font_panel::FontPanel::new(mtm, move || wake.request_repaint()))
@@ -689,12 +691,12 @@ fn main() -> eframe::Result {
             for f in other_files {
                 open_non_unicode(&mut app, &f);
             }
-            Ok(Box::new(App { app, panels, drops, settings, spool, control: control_server }))
             Ok(Box::new(App {
                 app,
                 panels,
                 #[cfg(target_os = "macos")]
                 sheets,
+                #[cfg(target_os = "macos")]
                 fonts,
                 drops,
                 settings,
@@ -913,6 +915,7 @@ mod smoke {
                     panels,
                     #[cfg(target_os = "macos")]
                     sheets,
+                    #[cfg(target_os = "macos")]
                     fonts: None,
                     drops,
                     settings,

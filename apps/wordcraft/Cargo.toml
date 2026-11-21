@@ -55,28 +55,25 @@ winresource = "0.1"
 # Finder double-click, Open With, Dock drops and `open -a WordCraft letter.docx` arrive as a
 # kAEOpenDocuments Apple event, which winit doesn't handle (#27).
 craft = { workspace = true, features = ["platform-apple-events"] }
-# The app's utility-panel windows (the Paragraph dialog in its own window) tied to the document
-# windows they were opened from: NSWindow's addChildWindow:ordered: is the only way to, and it is
-# unsafe — AGENTS.md names apps/wordcraft/src/panels.rs as the workspace's one exception. Already in
-# the build through eframe, at these versions.
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSWindow", "NSApplicationScripting"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
-# The Save Changes sheet (NSAlert as a sheet on the document's window, src/save_sheet.rs) and the
-# app's utility-panel windows (Find and Replace in its own window, src/panels.rs) tied to the
-# document windows they were opened from: AppKit's addChildWindow:ordered: is the only way to,
-# and it is unsafe — AGENTS.md names those two modules as the workspace's exceptions. Already in
-# the build through eframe, at these versions.
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSWindow", "NSAlert", "NSApplicationScripting"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+# The app's utility-panel windows (the Paragraph and Find and Replace dialogs in their own
+# windows) tied to the document windows they were opened from, the Save Changes sheet (NSAlert as
+# a sheet, src/save_sheet.rs), the system font panel (src/font_panel.rs) and the native menu bar
+# (src/native_menu.rs): AppKit's addChildWindow:ordered:, the panel classes and the menu classes
+# are the only way to, and they are unsafe — AGENTS.md names those modules as the workspace's
+# exceptions. Already in the build through eframe, at these versions.
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSWindowRestoration", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard", "NSApplicationScripting", "NSAlert", "block2", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSOpenPanel", "NSSavePanel", "NSMenu", "NSMenuItem", "NSEvent", "NSGraphicsContext", "NSColor", "NSColorPanel", "NSColorSpace", "objc2-core-foundation"] }
 # The Save Changes sheet's completion handler (src/save_sheet.rs). Already in the build through
 # objc2-app-kit, at this version.
 block2 = "0.6"
-# The system font panel (src/font_panel.rs): NSFontPanel and the font manager that drives it.
-# AGENTS.md names that module as the workspace's one `unsafe` exception. Already in the build
-# through eframe, at these versions.
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSWindow", "NSWindowRestoration", "NSFont", "NSFontManager", "NSFontPanel", "NSPanel", "NSColor", "NSColorPanel", "NSColorSpace", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData", "NSDictionary", "NSValue"] }
 objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData", "NSArray", "NSURL", "NSGeometry", "NSDictionary", "NSValue"] }
+# The native menu bar (src/native_menu.rs): a safe API over NSMenu, since the workspace forbids
+# unsafe. Same objc2 / objc2-app-kit as above.
+muda = { version = "0.21", default-features = false }
+
+[[test]]
+name = "mac_menu_appkit"
+harness = false
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 winit = { version = "0.30", default-features = false, features = ["x11"] }
