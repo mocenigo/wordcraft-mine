@@ -1,10 +1,10 @@
-//! The app's utility panels — Find and Replace (`Services::find_window`) and the Paragraph dialog,
-//! with its Tabs page (`Services::paragraph_window`) — as Mac panels: each is shown in a window of its own, and
-//! this ties that window to the document window it was opened from, as a child window. It moves
-//! with that window, stays just above it, goes behind another document's window with it, and hides
-//! while WordCraft is in the background. It is not listed in the Window menu. Each document
-//! window may have its own panel open, but only the frontmost document's shows: the others are
-//! hidden until their document comes to the front.
+//! The app's utility panels — Find and Replace (`Services::find_window`) and the Paragraph (with its
+//! Tabs page), Borders and Shading, Page Setup and Footnote and Endnote dialogs (`Services::paragraph_window`) — as
+//! Mac panels: each is shown in a window of its own, and this ties that window to the document window it was opened
+//! from, as a child window. It moves with that window, stays just above it, goes behind another document's window
+//! with it, and hides while WordCraft is in the background. It is not listed in the Window menu. Each document
+//! window may have its own panels open, but only the frontmost document's show: the others are hidden until their
+//! document comes to the front.
 //!
 //! The one exception to the workspace's no-`unsafe` rule (AGENTS.md names this module): AppKit
 //! marks `addChildWindow:ordered:` unsafe, and nothing else in these bindings ties two windows.
@@ -14,8 +14,8 @@ use objc2_app_kit::{NSApplication, NSWindow, NSWindowOrderingMode};
 use wordcraft_ui_egui::i18n::t;
 
 /// The translated titles of the windows the app shows as utility panels.
-fn panel_titles() -> [&'static str; 2] {
-    [t("Find and Replace"), t("Paragraph")]
+fn panel_titles() -> [&'static str; 5] {
+    [t("Find and Replace"), t("Paragraph"), t("Borders and Shading"), t("Page Setup"), t("Footnote and Endnote")]
 }
 
 /// Ties every panel that has no parent yet to the window just below it, the one it was opened
