@@ -28,8 +28,8 @@ pub struct Services {
     pub templates_dir: Option<std::path::PathBuf>,
     /// Files the system asked the app to open, and files dropped on a window, read once per frame.
     pub intake: Option<craft::platform::open::FileIntake>,
-    /// Desktop (macOS): show the Paragraph, Borders and Shading, Page Setup, Footnote and Endnote and
-    /// Track Changes Options dialogs in windows of their own, which the app keeps above the document's window as utility
+    /// Desktop (macOS): show the Paragraph, Borders and Shading, Page Setup, Footnote and Endnote,
+    /// Track Changes Options and picture Size dialogs in windows of their own, which the app keeps above the document's window as utility
     /// panels, instead of in the document window; Tabs is then a page of Paragraph.
     pub paragraph_window: bool,
     /// Desktop: ask "Save changes?" with the system's own prompt (a sheet on the document's
