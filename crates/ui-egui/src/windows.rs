@@ -603,6 +603,7 @@ impl WordApp {
         }
         self.window_work(&ctx);
         if self.windows.shown() != key {
+            self.run_parked_panels(&ctx, key);
             return;
         }
         #[cfg(test)]
