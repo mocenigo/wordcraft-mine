@@ -141,6 +141,10 @@ define_class!(
         // SAFETY: `changeColor:` takes the sender (the colour panel) and returns nothing.
         #[unsafe(method(changeColor:))]
         fn change_color(&self, _sender: Option<&AnyObject>) {
+            // While the shared panel stands in for a colour picker dialog (More Colors…), its picks are the dialog's.
+            if craft::color_ui::ui::system_color_panel_shown() {
+                return;
+            }
             let color = NSColorPanel::sharedColorPanel(self.mtm()).color();
             self.send(Pick { color: srgb(&color), ..Pick::default() });
         }
