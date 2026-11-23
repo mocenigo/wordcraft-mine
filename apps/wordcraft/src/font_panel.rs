@@ -241,7 +241,11 @@ impl FontPanel {
             if NSFontPanel::sharedFontPanelExists(mtm) && NSFontPanel::sharedFontPanel(mtm).isVisible() {
                 NSFontPanel::sharedFontPanel(mtm).orderOut(None);
             }
-            if NSColorPanel::sharedColorPanelExists(mtm) && NSColorPanel::sharedColorPanel(mtm).isVisible() {
+            // The Colors panel standing in for a colour picker dialog (More Colors…) was asked for.
+            if NSColorPanel::sharedColorPanelExists(mtm)
+                && NSColorPanel::sharedColorPanel(mtm).isVisible()
+                && !craft::color_ui::ui::system_color_panel_shown()
+            {
                 NSColorPanel::sharedColorPanel(mtm).orderOut(None);
             }
             return;
