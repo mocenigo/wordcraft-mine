@@ -54,12 +54,15 @@ craft = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complet
 craft-ui-test-kit = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complete-build", version = "=0.1.0" }
 craft-keymap = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complete-build", version = "=0.1.0" }
 craft-metafile = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complete-build", version = "=0.1.0" }
+wordcraft-validate = { path = "crates/validate" }
 
 # foundation
 kurbo = { version = "0.13", features = ["serde"] }
 thiserror = "2"
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
+quick-xml = "0.41"
+zip = { version = "3", default-features = false, features = ["deflate"] }
 log = "0.4"
 # All date/time conversion goes through chrono (no hand-rolled calendar code beyond the 400-year range extension; AGENTS.md).
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
@@ -182,19 +185,19 @@ hayro-jbig2 = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "c
 hayro-cmap = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complete-build" }
 hayro-postscript = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complete-build" }
 linesweeper = { git = "https://github.com/mocenigo/craft-libs-mine", branch = "complete-build" }
-ecolor = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-emath = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-epaint = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-epaint_default_fonts = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui-winit = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui-wgpu = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui_glow = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui_extras = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui_kittest = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui_system_font_provider = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-eframe = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui_demo_lib = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
-egui_inspection = { git = "https://github.com/mocenigo/egui-mine.git", rev = "b7e1a3309499a90b6ccbb47382c6c7947baef4d1" }
+ecolor = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+emath = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+epaint = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+epaint_default_fonts = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui-winit = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui-wgpu = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui_glow = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui_extras = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui_kittest = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui_system_font_provider = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+eframe = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui_demo_lib = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
+egui_inspection = { git = "https://github.com/mocenigo/egui-mine.git", rev = "cd9750fab098875ed4aae0c943c06c1287b26e97" }
 winit = { git = "https://github.com/mocenigo/winit-mine.git", rev = "97ca31df6d9d033176d2564eb18aa8523795d83f" }
 
